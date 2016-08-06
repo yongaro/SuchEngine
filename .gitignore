@@ -2,7 +2,6 @@
 *.slo
 *.lo
 *.o
-*.obj
 
 # Precompiled Headers
 *.gch
@@ -27,3 +26,9 @@
 *.exe
 *.out
 *.app
+
+# Temporary linux files
+*~
+
+# Heavy assets
+assets/rungholt/*

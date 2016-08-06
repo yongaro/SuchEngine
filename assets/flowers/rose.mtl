@@ -1,0 +1,24 @@
+# Blender MTL File: 'rose.blend'
+# Material Count: 2
+
+newmtl Material.001
+Ns 23.529412
+Ka 0.110000 0.110000 0.110000
+Kd 0.496000 0.263586 0.250949
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.100000
+d 0.980000
+illum 1
+map_Kd /home/resod/.cache/Downloads/Flowers0195_21_S.png
+map_Bump -bm 0.487654 /home/resod/.cache/Downloads/Flowers0195_21_S.png
+
+newmtl Material.002
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.000000 0.000000 0.000000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 1
