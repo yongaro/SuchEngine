@@ -13,16 +13,16 @@ protected:
 	std::vector<int> GPUindices;
 
 	//Textures vulkan
-	VDeleter<VkImage> textureImage{app->device, vkDestroyImage};
-	VDeleter<VkDeviceMemory> textureImageMemory{app->device, vkFreeMemory};
-	VDeleter<VkImageView> textureImageView{app->device, vkDestroyImageView};
-	VDeleter<VkSampler> textureSampler{app->device, vkDestroySampler};
+	VDeleter<VkImage> textureImage;
+	VDeleter<VkDeviceMemory> textureImageMemory;
+	VDeleter<VkImageView> textureImageView;
+	VDeleter<VkSampler> textureSampler;
 
 	//Geometrie vulkan
-	VDeleter<VkBuffer> vertexBuffer{app->device, vkDestroyBuffer};
-	VDeleter<VkDeviceMemory> vertexBufferMemory{app->device, vkFreeMemory};
-	VDeleter<VkBuffer> indexBuffer{app->device, vkDestroyBuffer};
-	VDeleter<VkDeviceMemory> indexBufferMemory{app->device, vkFreeMemory};
+	VDeleter<VkBuffer> vertexBuffer;
+	VDeleter<VkDeviceMemory> vertexBufferMemory;
+	VDeleter<VkBuffer> indexBuffer;
+	VDeleter<VkDeviceMemory> indexBufferMemory;
 
 public:
 	VkMesh(VkApp*);

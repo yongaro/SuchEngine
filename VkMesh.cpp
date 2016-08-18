@@ -1,19 +1,67 @@
 #include "VkMesh.hpp"
-
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+
+//######################################## DELETER CLASS ##############################################################################
+template <typename T>
+void VDeleter<T>::cleanup(){
+	if( object != VK_NULL_HANDLE ){ deleter(object); }
+	object = VK_NULL_HANDLE;
+}
+
+
+
+template <typename T>
+VDeleter<T>::VDeleter():VDeleter( [](T _) {} ){}
+
+template <typename T>
+VDeleter<T>::VDeleter( std::function<void(T, VkAllocationCallbacks*)> deletef ){
+	object = VK_NULL_HANDLE;
+	this->deleter = [=](T obj) { deletef(obj, nullptr); };
+}
+
+
+template <typename T>
+VDeleter<T>::VDeleter( const VDeleter<VkInstance>& instance, std::function<void(VkInstance, T, VkAllocationCallbacks*)> deletef ){
+	object = VK_NULL_HANDLE;
+	this->deleter = [&instance, deletef](T obj) { deletef(instance, obj, nullptr); };
+}
+
+template <typename T>
+VDeleter<T>::VDeleter( const VDeleter<VkDevice>& device, std::function<void(VkDevice, T, VkAllocationCallbacks*)> deletef ){
+	object = VK_NULL_HANDLE;
+	this->deleter = [&device, deletef](T obj) { deletef(device, obj, nullptr); };
+}
+
+template <typename T>
+VDeleter<T>::~VDeleter(){ cleanup(); }
+
+template <typename T>
+T* VDeleter<T>::operator &(){ cleanup(); return &object; }
+
+template <typename T>
+VDeleter<T>::operator T() const{ return object; }
+//######################################################################################################################################
+
+
+
+
+
+
+
+
 VkMesh::VkMesh(VkApp* vkapp):Mesh(),app(vkapp),
-									  //Initialisation des structures pour texture
-									  textureImage(vkapp->device, vkDestroyImage),
-									  textureImageMemory(vkapp->device, vkFreeMemory),
-									  textureImageView(vkapp->device, vkDestroyImageView),
-									  textureSampler(vkapp->device, vkDestroySampler),
-									  //Initialisation des buffers pour la geometrie
-									  vertexBuffer(vkapp->device, vkDestroyBuffer),
-									  vertexBufferMemory(vkapp->device, vkFreeMemory),
-									  indexBuffer(vkapp->device, vkDestroyBuffer),
-									  indexBufferMemory(vkapp->device, vkFreeMemory){}
+                             //Initialisation des structures pour texture
+                             textureImage(vkapp->device, vkDestroyImage),
+                             textureImageMemory(vkapp->device, vkFreeMemory),
+                             textureImageView(vkapp->device, vkDestroyImageView),
+                             textureSampler(vkapp->device, vkDestroySampler),
+                             //Initialisation des buffers pour la geometrie
+                             vertexBuffer(vkapp->device, vkDestroyBuffer),
+                             vertexBufferMemory(vkapp->device, vkFreeMemory),
+                             indexBuffer(vkapp->device, vkDestroyBuffer),
+                             indexBufferMemory(vkapp->device, vkFreeMemory){}
 
 
 VkMesh::VkMesh(VkApp* vkapp, const std::string& path):VkMesh(vkapp){ loadOBJ(path.c_str()); }
@@ -31,8 +79,8 @@ void VkMesh::createTextureImage(const std::string& texturePath){
 	VDeleter<VkImage> stagingImage{app->device, vkDestroyImage};
 	VDeleter<VkDeviceMemory> stagingImageMemory{app->device, vkFreeMemory};
 	app->createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_LINEAR,
-					VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-					VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingImage, stagingImageMemory);
+	                 VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+	                 VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingImage, stagingImageMemory);
 
 	void* data;
 	vkMapMemory(app->device, stagingImageMemory, 0, imageSize, 0, &data);
@@ -42,7 +90,7 @@ void VkMesh::createTextureImage(const std::string& texturePath){
 	stbi_image_free(pixels);
 
 	app->createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-					VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
+	                 VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
 
 	app->transitionImageLayout(stagingImage, VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 	app->transitionImageLayout(textureImage, VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -99,7 +147,7 @@ void VkMesh::createVertexBuffer(){
 	VDeleter<VkBuffer> stagingBuffer{app->device, vkDestroyBuffer};
 	VDeleter<VkDeviceMemory> stagingBufferMemory{app->device, vkFreeMemory};
 	app->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-							VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+	                  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
 
 	void* data;
 	vkMapMemory(app->device, stagingBufferMemory, 0, bufferSize, 0, &data);
@@ -107,7 +155,7 @@ void VkMesh::createVertexBuffer(){
 	vkUnmapMemory(app->device, stagingBufferMemory);
 
 	app->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-							VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
+	                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
 
 	app->copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
 
@@ -122,8 +170,8 @@ void VkMesh::createIndexBuffer(){
 	VDeleter<VkBuffer> stagingBuffer{app->device, vkDestroyBuffer};
 	VDeleter<VkDeviceMemory> stagingBufferMemory{app->device, vkFreeMemory};
 	app->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-							VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-							stagingBuffer, stagingBufferMemory);
+	                  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+	                  stagingBuffer, stagingBufferMemory);
 
 	void* data;
 	vkMapMemory(app->device, stagingBufferMemory, 0, bufferSize, 0, &data);
@@ -131,7 +179,7 @@ void VkMesh::createIndexBuffer(){
 	vkUnmapMemory(app->device, stagingBufferMemory);
 
 	app->createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-							VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
+	                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
 
 	app->copyBuffer(stagingBuffer, indexBuffer, bufferSize);
 }

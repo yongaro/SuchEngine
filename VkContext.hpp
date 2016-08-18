@@ -20,7 +20,7 @@
 #include <set>
 #include <unordered_map>
 
-
+#define max_lights 10
 
 
 extern VkResult CreateDebugReportCallbackEXT(VkInstance, const VkDebugReportCallbackCreateInfoEXT*, const VkAllocationCallbacks*, VkDebugReportCallbackEXT*);
@@ -33,38 +33,19 @@ extern void DestroyDebugReportCallbackEXT(VkInstance, VkDebugReportCallbackEXT, 
 template <typename T>
 class VDeleter {
 private:
-
 	T object;
 	std::function<void(T)> deleter;
-
-	void cleanup(){
-		if( object != VK_NULL_HANDLE ){ deleter(object); }
-		object = VK_NULL_HANDLE;
-	}
+	void cleanup();
 	
 public:
-	
-	VDeleter():VDeleter( [](T _) {} ){}
+	VDeleter();
+	VDeleter( std::function<void(T, VkAllocationCallbacks*)> );
+	VDeleter( const VDeleter<VkInstance>&, std::function<void(VkInstance, T, VkAllocationCallbacks*)> );
+	VDeleter( const VDeleter<VkDevice>&, std::function<void(VkDevice, T, VkAllocationCallbacks*)> );
 
-	VDeleter( std::function<void(T, VkAllocationCallbacks*)> deletef ){
-		object = VK_NULL_HANDLE;
-		this->deleter = [=](T obj) { deletef(obj, nullptr); };
-	}
-
-	VDeleter( const VDeleter<VkInstance>& instance, std::function<void(VkInstance, T, VkAllocationCallbacks*)> deletef ){
-		object = VK_NULL_HANDLE;
-		this->deleter = [&instance, deletef](T obj) { deletef(instance, obj, nullptr); };
-	}
-
-	VDeleter( const VDeleter<VkDevice>& device, std::function<void(VkDevice, T, VkAllocationCallbacks*)> deletef ){
-		object = VK_NULL_HANDLE;
-		this->deleter = [&device, deletef](T obj) { deletef(device, obj, nullptr); };
-	}
-
-	~VDeleter(){ cleanup(); }
-	T* operator &(){ cleanup(); return &object; }
-	operator T() const{ return object; }
-
+	~VDeleter();
+	T* operator &();
+	operator T() const;
 };
 
 
@@ -83,7 +64,7 @@ struct SwapChainSupportDetails {
 };
 
 
-
+//Mesh structures
 struct VkBufferVertex {
 	glm::vec3 pos;
 	glm::vec3 normal;
@@ -99,26 +80,37 @@ struct VkBufferVertex {
 	bool operator==( const VkBufferVertex& )const;
 };
 
+//Phong structures
+struct Material{
+	glm::vec4 ambient;
+	glm::vec4 diffuse;
+	glm::vec4 specular;
+	float shininess;
 
-
-
-struct LightSource{
-	glm::vec4 pos;
-	glm::vec3 intensities;
-	float attenuation;
-	float ambientCoeff;
-	float coneAngle;
-	glm::vec3 coneDirection;
+	Material();
 };
-
-
 
 struct UniformBufferObject {
 	glm::mat4 model;
 	glm::mat4 view;
 	glm::mat4 proj;
-	//glm::mat4 modelView;
+	glm::mat4 mvp;
+	Material mat;
+	
+	UniformBufferObject();
+	void updateMatrices();
 };
+
+
+struct LightSources{
+	glm::vec4 pos[max_lights];
+	glm::vec4 diffuse[max_lights];
+	glm::vec4 specular[max_lights];
+	glm::vec4 attenuation[max_lights]; //constant - linear - quadratic - spotExponent
+	glm::vec4 spots[max_lights]; // xyz - spotCutoff
+	LightSources();
+};
+
 
 
 class VkMesh;
@@ -126,57 +118,74 @@ class VkMesh;
 
 class VkApp{
 public:
-	~VkApp();
-	void run();
-private:
-	const unsigned int WIDTH = 800;
-	const unsigned int HEIGHT = 600;
-	const std::string MODEL_PATH = "./assets/chalet/chalet2.obj";
+	static const unsigned int WIDTH = 800;
+	static const unsigned int HEIGHT = 600;
+	//const std::string MODEL_PATH = "./assets/chalet/chalet2.obj";
+	const std::string MODEL_PATH = "./assets/mecha/MechaSonic.obj";
 	const std::string TEXTURE_PATH = "./assets/chalet/chalet.jpg";
+	
+	VkApp();
+	virtual ~VkApp();
+	void run();
+
+private:
 	GLFWwindow* window;
 	VkMesh* mesh;
+	float FOV;
+	glm::vec3 camPos;
+	glm::vec3 moveCamStep;
+	UniformBufferObject globalUBO;
+	LightSources lights;
+	
 
-	VDeleter<VkInstance> instance{vkDestroyInstance};
-	VDeleter<VkDebugReportCallbackEXT> callback{instance, DestroyDebugReportCallbackEXT};
-	VDeleter<VkSurfaceKHR> surface{instance, vkDestroySurfaceKHR};
+	VDeleter<VkInstance> instance;
+	VDeleter<VkDebugReportCallbackEXT> callback;
+	VDeleter<VkSurfaceKHR> surface;
 
-	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-	VDeleter<VkDevice> device{vkDestroyDevice};
+	VkPhysicalDevice physicalDevice;
+	VDeleter<VkDevice> device;
 
 	VkQueue graphicsQueue;
 	VkQueue presentQueue;
 
-	VDeleter<VkSwapchainKHR> swapChain{device, vkDestroySwapchainKHR};
+	VDeleter<VkSwapchainKHR> swapChain;
 	std::vector<VkImage> swapChainImages;
 	VkFormat swapChainImageFormat;
 	VkExtent2D swapChainExtent;
 	std::vector<VDeleter<VkImageView>> swapChainImageViews;
 	std::vector<VDeleter<VkFramebuffer>> swapChainFramebuffers;
+	
+	
+	VDeleter<VkRenderPass> renderPass;
+	VDeleter<VkDescriptorSetLayout> descriptorSetLayout;
+	VDeleter<VkPipelineLayout> pipelineLayout;
+	VDeleter<VkPipeline> graphicsPipeline;
 
-	VDeleter<VkRenderPass> renderPass{device, vkDestroyRenderPass};
-	VDeleter<VkDescriptorSetLayout> descriptorSetLayout{device, vkDestroyDescriptorSetLayout};
-	VDeleter<VkPipelineLayout> pipelineLayout{device, vkDestroyPipelineLayout};
-	VDeleter<VkPipeline> graphicsPipeline{device, vkDestroyPipeline};
+	VDeleter<VkCommandPool> commandPool;
 
-	VDeleter<VkCommandPool> commandPool{device, vkDestroyCommandPool};
-
-	VDeleter<VkImage> depthImage{device, vkDestroyImage};
-	VDeleter<VkDeviceMemory> depthImageMemory{device, vkFreeMemory};
-	VDeleter<VkImageView> depthImageView{device, vkDestroyImageView};
+	VDeleter<VkImage> depthImage;
+	VDeleter<VkDeviceMemory> depthImageMemory;
+	VDeleter<VkImageView> depthImageView;
 
 	
-	VDeleter<VkBuffer> uniformStagingBuffer{device, vkDestroyBuffer};
-	VDeleter<VkDeviceMemory> uniformStagingBufferMemory{device, vkFreeMemory};
-	VDeleter<VkBuffer> uniformBuffer{device, vkDestroyBuffer};
-	VDeleter<VkDeviceMemory> uniformBufferMemory{device, vkFreeMemory};
+	VDeleter<VkBuffer> uniformStagingBuffer;
+	VDeleter<VkDeviceMemory> uniformStagingBufferMemory;
+	VDeleter<VkBuffer> uniformBuffer;
+	VDeleter<VkDeviceMemory> uniformBufferMemory;
+	
+	VDeleter<VkBuffer> lightsStagingBuffer;
+	VDeleter<VkDeviceMemory> lightsStagingBufferMemory;
+	VDeleter<VkBuffer> lightsBuffer;
+	VDeleter<VkDeviceMemory> lightsBufferMemory;
 
-	VDeleter<VkDescriptorPool> descriptorPool{device, vkDestroyDescriptorPool};
+
+	VDeleter<VkDescriptorPool> descriptorPool;
 	VkDescriptorSet descriptorSet;
 
 	std::vector<VkCommandBuffer> commandBuffers;
 
-	VDeleter<VkSemaphore> imageAvailableSemaphore{device, vkDestroySemaphore};
-	VDeleter<VkSemaphore> renderFinishedSemaphore{device, vkDestroySemaphore};
+	VDeleter<VkSemaphore> imageAvailableSemaphore;
+	VDeleter<VkSemaphore> renderFinishedSemaphore;
 
 	void initWindow();
 	void initVulkan();
@@ -208,7 +217,7 @@ private:
 
 	void createImageView(VkImage, VkFormat, VkImageAspectFlags, VDeleter<VkImageView>&);
 	void createImage(uint32_t, uint32_t, VkFormat, VkImageTiling, VkImageUsageFlags,
-						  VkMemoryPropertyFlags, VDeleter<VkImage>&, VDeleter<VkDeviceMemory>&);
+	                 VkMemoryPropertyFlags, VDeleter<VkImage>&, VDeleter<VkDeviceMemory>&);
 
 	void transitionImageLayout(VkImage, VkImageLayout, VkImageLayout);
 

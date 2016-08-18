@@ -1,6 +1,5 @@
 #include "VkMesh.hpp"
 
-
 int main(){
 	VkApp app;
 
@@ -12,4 +11,3 @@ int main(){
 
 	return EXIT_SUCCESS;
 }
-

@@ -32,7 +32,53 @@ void DestroyDebugReportCallbackEXT(VkInstance instance, VkDebugReportCallbackEXT
 }
 
 
-//############################# STRUCT VERTEX ##################################
+//######################################## DELETER CLASS ##############################################################################
+
+template <typename T>
+void VDeleter<T>::cleanup(){
+		if( object != VK_NULL_HANDLE ){ deleter(object); }
+		object = VK_NULL_HANDLE;
+}
+
+
+
+template <typename T>
+VDeleter<T>::VDeleter():VDeleter( [](T _) {} ){}
+
+template <typename T>
+VDeleter<T>::VDeleter( std::function<void(T, VkAllocationCallbacks*)> deletef ){
+	object = VK_NULL_HANDLE;
+	this->deleter = [=](T obj) { deletef(obj, nullptr); };
+}
+
+
+template <typename T>
+VDeleter<T>::VDeleter( const VDeleter<VkInstance>& instance, std::function<void(VkInstance, T, VkAllocationCallbacks*)> deletef ){
+	object = VK_NULL_HANDLE;
+	this->deleter = [&instance, deletef](T obj) { deletef(instance, obj, nullptr); };
+}
+
+template <typename T>
+VDeleter<T>::VDeleter( const VDeleter<VkDevice>& device, std::function<void(VkDevice, T, VkAllocationCallbacks*)> deletef ){
+	object = VK_NULL_HANDLE;
+	this->deleter = [&device, deletef](T obj) { deletef(device, obj, nullptr); };
+}
+
+template <typename T>
+VDeleter<T>::~VDeleter(){ cleanup(); }
+
+template <typename T>
+T* VDeleter<T>::operator &(){ cleanup(); return &object; }
+
+template <typename T>
+VDeleter<T>::operator T() const{ return object; }
+//######################################################################################################################################
+
+
+
+
+
+//############################# STRUCT VERTEX ##########################################################################################
 VkBufferVertex::VkBufferVertex():pos(),normal(),texCoord(){}
 VkBufferVertex::VkBufferVertex(glm::vec3 rPos, glm::vec3 nrm, glm::vec2 UV):pos(rPos),normal(nrm),texCoord(UV){}
 VkBufferVertex::VkBufferVertex(const VkBufferVertex& ref):VkBufferVertex(ref.pos,ref.normal,ref.texCoord){}
@@ -76,9 +122,97 @@ bool VkBufferVertex::operator==( const VkBufferVertex& other )const{
 }
 //#########################################################################################
 
+//############################### STRUCT UNIFORMBUFFEROBJECT ##############################
+Material::Material():ambient(0.8, 0.8, 0.8, 1.0),
+                     diffuse(0.8, 0.8, 0.8, 1.0),
+                     specular(0.8, 0.8, 0.8, 1.0),
+                     shininess(50.0){}
+               
+
+UniformBufferObject::UniformBufferObject():model( glm::mat4(1.0f) ),
+														 view( glm::lookAt(glm::vec3(2.5f, 2.5f, 2.5f),
+														                   glm::vec3(0.0f, 1.25f, 0.0f),
+														                   glm::vec3(0.0f, 1.0f, 0.0f))
+														       ),
+														 proj( glm::perspective(glm::radians(45.0f),
+														                        VkApp::WIDTH / (float)VkApp::HEIGHT,
+														                        0.1f, 10.0f)
+														       ),
+                                           mvp(),
+                                           mat()
+{
+	proj[1][1] *= -1;
+	updateMatrices();
+}
+
+void UniformBufferObject::updateMatrices(){ mvp = proj * view * model; }
+
+LightSources::LightSources(){
+	//Initialisation IMPORTANTE de toutes les lumieres
+	for( size_t i = 0; i < max_lights; ++i ){
+		pos[i] = glm::vec4(0.0f, 0.0f, 0.0f, -1.0f);
+		diffuse[i] = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+		specular[i] = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+		attenuation[i] = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+		spots[i] = glm::vec4(0.0f,-1.0f,0.0f, 180.0f);
+	}
+}
+
+//#########################################################################################
 
 
 //############################## CLASS VKAPP ##############################################
+
+//TODO
+VkApp::VkApp():window(NULL),mesh(NULL),FOV(20.0f),
+               camPos(),moveCamStep(),
+               globalUBO(),lights(),
+
+               instance(vkDestroyInstance),
+               callback(instance, DestroyDebugReportCallbackEXT),
+               surface(instance, vkDestroySurfaceKHR),
+
+               physicalDevice(VK_NULL_HANDLE),
+               device(vkDestroyDevice),
+
+               graphicsQueue(),
+               presentQueue(),
+
+               swapChain(device, vkDestroySwapchainKHR),
+               swapChainImages(),swapChainImageFormat(),swapChainExtent(),
+               swapChainImageViews(),swapChainFramebuffers(),
+
+               renderPass(device, vkDestroyRenderPass),
+               descriptorSetLayout(device, vkDestroyDescriptorSetLayout),
+               pipelineLayout(device, vkDestroyPipelineLayout),
+               graphicsPipeline(device, vkDestroyPipeline),
+
+               commandPool(device, vkDestroyCommandPool),
+
+               depthImage(device, vkDestroyImage),
+               depthImageMemory(device, vkFreeMemory),
+               depthImageView(device, vkDestroyImageView),
+
+               uniformStagingBuffer(device, vkDestroyBuffer),
+               uniformStagingBufferMemory(device, vkFreeMemory),
+               uniformBuffer(device, vkDestroyBuffer),
+               uniformBufferMemory(device, vkFreeMemory),
+
+               lightsStagingBuffer(device, vkDestroyBuffer),
+               lightsStagingBufferMemory(device, vkFreeMemory),
+               lightsBuffer(device, vkDestroyBuffer),
+               lightsBufferMemory(device, vkFreeMemory),
+
+               descriptorPool(device, vkDestroyDescriptorPool),
+               descriptorSet(),
+
+               commandBuffers(),
+
+               imageAvailableSemaphore(device, vkDestroySemaphore),
+               renderFinishedSemaphore(device, vkDestroySemaphore){}
+
+
+
 
 VkApp::~VkApp(){ delete mesh; }
 
@@ -91,10 +225,10 @@ void VkApp::run(){
 
 void VkApp::initWindow(){
 	glfwInit();
-
+	
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
-
+	window = glfwCreateWindow(VkApp::WIDTH, VkApp::HEIGHT, "My first Visual Basic program", nullptr, nullptr);
+	
 	glfwSetWindowUserPointer(window, this);
 	glfwSetWindowSizeCallback(window, VkApp::onWindowResized);
 	//glfwSetScrollCallback(window, mouseWheelCallBack);
@@ -161,7 +295,7 @@ void VkApp::createInstance(){
 
 	VkApplicationInfo appInfo = {};
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	appInfo.pApplicationName = "Hello Triangle";
+	appInfo.pApplicationName = "SuchEngine";
 	appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
 	appInfo.pEngineName = "No Engine";
 	appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
@@ -405,8 +539,15 @@ void VkApp::createDescriptorSetLayout(){
 	samplerLayoutBinding.pImmutableSamplers = nullptr;
 	samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
+	VkDescriptorSetLayoutBinding lightsLayoutBinding = {};
+	lightsLayoutBinding.binding = 2;
+	lightsLayoutBinding.descriptorCount = 1;
+	lightsLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	lightsLayoutBinding.pImmutableSamplers = nullptr;
+	lightsLayoutBinding.stageFlags = VK_SHADER_STAGE_ALL;//VK_SHADER_STAGE_VERTEX_BIT;
+
   
-	std::array<VkDescriptorSetLayoutBinding, 2> bindings = {uboLayoutBinding, samplerLayoutBinding};
+	std::array<VkDescriptorSetLayoutBinding, 3> bindings = {uboLayoutBinding, samplerLayoutBinding, lightsLayoutBinding};
 	VkDescriptorSetLayoutCreateInfo layoutInfo = {};
 	layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 	layoutInfo.bindingCount = bindings.size();
@@ -628,61 +769,6 @@ VkFormat VkApp::findDepthFormat(){
 
 
 
-/*
-void VkApp::createTextureImage(){
-	int texWidth, texHeight, texChannels;
-	stbi_uc* pixels = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-	VkDeviceSize imageSize = texWidth * texHeight * 4;
-
-	if( !pixels ){ throw std::runtime_error("failed to load texture image!"); }
-
-	VDeleter<VkImage> stagingImage{device, vkDestroyImage};
-	VDeleter<VkDeviceMemory> stagingImageMemory{device, vkFreeMemory};
-	createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-					VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingImage, stagingImageMemory);
-
-	void* data;
-	vkMapMemory(device, stagingImageMemory, 0, imageSize, 0, &data);
-	memcpy(data, pixels, (size_t) imageSize);
-	vkUnmapMemory(device, stagingImageMemory);
-
-	stbi_image_free(pixels);
-
-	createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-					VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
-
-	transitionImageLayout(stagingImage, VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-	transitionImageLayout(textureImage, VK_IMAGE_LAYOUT_PREINITIALIZED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-	copyImage(stagingImage, textureImage, texWidth, texHeight);
-
-	transitionImageLayout(textureImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-}
-
-void VkApp::createTextureImageView(){
-	createImageView(textureImage, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, textureImageView); 
-}
-
-void VkApp::createTextureSampler(){
-	VkSamplerCreateInfo samplerInfo = {};
-	samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	samplerInfo.magFilter = VK_FILTER_LINEAR;
-	samplerInfo.minFilter = VK_FILTER_LINEAR;
-	samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samplerInfo.anisotropyEnable = VK_TRUE;
-	samplerInfo.maxAnisotropy = 16;
-	samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-	samplerInfo.unnormalizedCoordinates = VK_FALSE;
-	samplerInfo.compareEnable = VK_FALSE;
-	samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-	samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-
-	if( vkCreateSampler(device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS ){
-		throw std::runtime_error("failed to create texture sampler!");
-	}
-}
-*/
 void VkApp::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, VDeleter<VkImageView>& imageView) {
 	VkImageViewCreateInfo viewInfo = {};
 	viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -816,98 +902,35 @@ void VkApp::copyImage(VkImage srcImage, VkImage dstImage, uint32_t width, uint32
 void VkApp::loadAssets(){
 	mesh = new VkMesh(this,MODEL_PATH);
 	mesh->createTextureImage(TEXTURE_PATH);
-}
-
-
-/*
-void VkApp::loadModel() {
-	tinyobj::attrib_t attrib;
-	std::vector<tinyobj::shape_t> shapes;
-	std::vector<tinyobj::material_t> materials;
-	std::string err;
-
-	if( !tinyobj::LoadObj(&attrib, &shapes, &materials, &err, MODEL_PATH.c_str()) ){ 
-		throw std::runtime_error(err); 
-	}
-
-	std::unordered_map<VkBufferVertex, int> uniqueVertices = {};
-
-	for( const auto& shape : shapes ){
-		for( const auto& index : shape.mesh.indices ){
-			VkBufferVertex vertex = {};
-
-			vertex.pos ={attrib.vertices[3 * index.vertex_index + 0],
-							 attrib.vertices[3 * index.vertex_index + 1],
-							 attrib.vertices[3 * index.vertex_index + 2]
-			};
-
-			vertex.normal ={attrib.vertices[3 * index.normal_index + 0],
-								 attrib.vertices[3 * index.normal_index + 1],
-								 attrib.vertices[3 * index.normal_index + 2]
-			};
-
-			vertex.texCoord ={attrib.texcoords[2 * index.texcoord_index + 0],
-									1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-			};
-
-			if( uniqueVertices.count(vertex) == 0 ){
-				uniqueVertices[vertex] = vertices.size();
-				vertices.push_back(vertex);
-			}
-		
-			indices.push_back(uniqueVertices[vertex]);
-		}
-	}
-}
-
+	camPos = mesh->defView();
 	
-void VkApp::createVertexBuffer(){
-	VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
+	moveCamStep = glm::vec3(camPos.x / 25.0,camPos.y / 25.0,camPos.z / 25.0);
 
-	VDeleter<VkBuffer> stagingBuffer{device, vkDestroyBuffer};
-	VDeleter<VkDeviceMemory> stagingBufferMemory{device, vkFreeMemory};
-	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-	void* data;
-	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, vertices.data(), (size_t) bufferSize);
-	vkUnmapMemory(device, stagingBufferMemory);
-
-	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, vertexBuffer, vertexBufferMemory);
-
-	copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+	globalUBO.proj = glm::perspective(glm::radians(FOV), 1.0f, 0.1f, (GLfloat)(camPos.z*10.0));
+	globalUBO.view = glm::lookAt(glm::vec3(camPos), // Camera is at (4,4,4), in World Space
+	                             glm::vec3(0,camPos.y,0), // and looks at the origin
+	                             glm::vec3(0,1,0)  // Head is up (set to 0,-1,0 to look upside-down)
+	                             );
+	globalUBO.proj[1][1] *= -1;
 }
 
 
 
-void VkApp::createIndexBuffer(){
-	VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
-
-	VDeleter<VkBuffer> stagingBuffer{device, vkDestroyBuffer};
-	VDeleter<VkDeviceMemory> stagingBufferMemory{device, vkFreeMemory};
-	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
-
-	void* data;
-	vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, indices.data(), (size_t) bufferSize);
-	vkUnmapMemory(device, stagingBufferMemory);
-
-	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
-
-	copyBuffer(stagingBuffer, indexBuffer, bufferSize);
-}
-*/
 void VkApp::createUniformBuffer() {
 	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-
 	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformStagingBuffer, uniformStagingBufferMemory);
 	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, uniformBuffer, uniformBufferMemory);
+
+	VkDeviceSize lightsbufferSize = sizeof(LightSources);
+	createBuffer(lightsbufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, lightsStagingBuffer, lightsStagingBufferMemory);
+	createBuffer(lightsbufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, lightsBuffer, lightsBufferMemory);
+
 }
 
 void VkApp::createDescriptorPool() {
 	std::array<VkDescriptorPoolSize, 2> poolSizes = {};
 	poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	poolSizes[0].descriptorCount = 1;
+	poolSizes[0].descriptorCount = 2;
 	poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	poolSizes[1].descriptorCount = 1;
 
@@ -930,7 +953,7 @@ void VkApp::createDescriptorSet() {
 	allocInfo.descriptorSetCount = 1;
 	allocInfo.pSetLayouts = layouts;
 
-	if (vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet) != VK_SUCCESS) {
+	if( vkAllocateDescriptorSets(device, &allocInfo, &descriptorSet) != VK_SUCCESS ){
 		throw std::runtime_error("failed to allocate descriptor set!");
 	}
 
@@ -938,13 +961,19 @@ void VkApp::createDescriptorSet() {
 	bufferInfo.buffer = uniformBuffer;
 	bufferInfo.offset = 0;
 	bufferInfo.range = sizeof(UniformBufferObject);
-
+	
 	VkDescriptorImageInfo imageInfo = {};
 	imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	imageInfo.imageView = mesh->textureImageView;
 	imageInfo.sampler = mesh->textureSampler;
 
-	std::array<VkWriteDescriptorSet, 2> descriptorWrites = {};
+	VkDescriptorBufferInfo lightsbufferInfo = {};
+	lightsbufferInfo.buffer = lightsBuffer;
+	lightsbufferInfo.offset = 0;
+	lightsbufferInfo.range = sizeof(LightSources);
+
+
+	std::array<VkWriteDescriptorSet, 3> descriptorWrites = {};
 
 	descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	descriptorWrites[0].dstSet = descriptorSet;
@@ -961,6 +990,15 @@ void VkApp::createDescriptorSet() {
 	descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	descriptorWrites[1].descriptorCount = 1;
 	descriptorWrites[1].pImageInfo = &imageInfo;
+
+	descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	descriptorWrites[2].dstSet = descriptorSet;
+	descriptorWrites[2].dstBinding = 2;
+	descriptorWrites[2].dstArrayElement = 0;
+	descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	descriptorWrites[2].descriptorCount = 1;
+	descriptorWrites[2].pBufferInfo = &lightsbufferInfo;
+	
 
 	vkUpdateDescriptorSets(device, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
 }
@@ -1096,9 +1134,7 @@ void VkApp::createCommandBuffers() {
 		VkBuffer vertexBuffers[] = {mesh->vertexBuffer};
 		VkDeviceSize offsets[] = {0};
 		vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-
 		vkCmdBindIndexBuffer(commandBuffers[i], mesh->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
 		vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSet, 0, nullptr);
 
 		vkCmdDrawIndexed(commandBuffers[i], mesh->GPUindices.size(), 1, 0, 0, 0);
@@ -1127,18 +1163,29 @@ void VkApp::updateUniformBuffer(){
 
 	auto currentTime = std::chrono::high_resolution_clock::now();
 	float time = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - startTime).count() / 1000.0f;
+	
+	globalUBO.model = glm::rotate(glm::mat4(),time * glm::radians(25.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	globalUBO.updateMatrices();
+	lights.pos[1] = glm::vec4(globalUBO.view[0]);
+	lights.diffuse[1] = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
+	lights.specular[1] = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
 
-	UniformBufferObject ubo = {};
-	ubo.model = glm::rotate(glm::mat4(),time * glm::radians(5.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
-	ubo.proj[1][1] *= -1;
+	lights.pos[4] = glm::vec4(globalUBO.view[0]);
+	lights.diffuse[4] = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+	lights.specular[4] = glm::vec4(0.0f, 1.0f, 0.0f, 1.0f);
 
 	void* data;
-	vkMapMemory(device, uniformStagingBufferMemory, 0, sizeof(ubo), 0, &data);
-	memcpy(data, &ubo, sizeof(ubo));
+	vkMapMemory(device, uniformStagingBufferMemory, 0, sizeof(UniformBufferObject), 0, &data);
+	memcpy(data, &globalUBO, sizeof(UniformBufferObject));
+	//memcpy( &((UniformBufferObject*)data)->mat, &(globalUBO.mat), sizeof(Material));
 	vkUnmapMemory(device, uniformStagingBufferMemory);
-	copyBuffer(uniformStagingBuffer, uniformBuffer, sizeof(ubo));
+	copyBuffer(uniformStagingBuffer, uniformBuffer, sizeof(UniformBufferObject));
+
+	void* lightsData;
+	vkMapMemory(device, lightsStagingBufferMemory, 0, sizeof(LightSources), 0, &lightsData);
+	memcpy(lightsData, &lights, sizeof(LightSources));
+	vkUnmapMemory(device, lightsStagingBufferMemory);
+	copyBuffer(lightsStagingBuffer, lightsBuffer, sizeof(LightSources));
 }
 
 void VkApp::drawFrame() {

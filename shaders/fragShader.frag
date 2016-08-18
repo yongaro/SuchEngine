@@ -1,74 +1,101 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
+#define max_lights 10
+
+struct Material{
+	vec4 ambient;
+	vec4 diffuse;
+	vec4 specular;
+	float shininess; 
+};
+
+
+
 layout(binding = 0) uniform UniformBufferObject {
     mat4 model;
     mat4 view;
     mat4 proj;
+	 mat4 mvp;
+	 Material mat;
 } ubo;
 
-vec3 viewPos = vec3(ubo.view[0]);
-vec3 lightColors = vec3(1.0,1.0,1.0);
-vec3 lightPos = vec3(0.0,0.0,4.0);//vec3(viewPos);
+layout(binding = 1) uniform sampler2D texSampler;
+
+layout(binding = 2) uniform LightSources{
+	vec4 pos[max_lights];
+	vec4 diffuse[max_lights];
+	vec4 specular[max_lights];
+	vec4 attenuation[max_lights]; //constant - linear - quadratic - spotExpoment
+	vec4 spots[max_lights]; // xyz - spotCutoff
+} lights;
+
+
 
 layout(location = 0) in vec3 fragPos;
 layout(location = 1) in vec3 fragNormal;
 layout(location = 2) in vec2 fragTexCoord;
 
-
 layout(location = 0) out vec4 outColor;
-layout(binding = 1) uniform sampler2D texSampler;
 
 
+
+
+vec4 scene_ambient = vec4(0.0, 0.0, 0.0, 1.0);
 
 void main(){
-	/*
-	highp vec3 ambient = 0.1f * lightColors;
- 	highp vec3 norm = normalize(fragNormal);
-	highp vec3 lightDir = normalize(lightPos - fragPos);  
+	
+	vec3 normalDirection = normalize(fragNormal);
+	vec3 viewDirection = normalize(vec3(inverse(ubo.view) * vec4(0.0, 0.0, 0.0, 1.0) - vec4(fragPos,1.0) ));
+	vec3 lightDirection;
+	float attenuation;
+
+	// initialize total lighting with ambient lighting
+  vec3 totalLighting = vec3(scene_ambient) * vec3(ubo.mat.ambient);
+
+  for(int i = 0; i < max_lights; ++i){
+	  //current light is used ?
+	  if(lights.pos[i].z < 0){ continue; }
+	  
+	  
+	  if( 0.0 == lights.pos[i].w ){// directional light?
+		  attenuation = 1.0; // no attenuation
+		  lightDirection = normalize(vec3(lights.pos[i]));
+	  } 
+	  else{ // point light or spotlight (or other kind of light)
+		  vec3 positionToLightSource = vec3(lights.pos[i] - vec4(fragPos,1.0));
+		  float distance = length(positionToLightSource);
+		  lightDirection = normalize(positionToLightSource);
+		  attenuation = 1.0 / (lights.attenuation[i].x //constant
+		                       + lights.attenuation[i].y * distance //linear
+		                       + lights.attenuation[i].z * distance * distance); //quadratic
+      
+		  if( lights.spots[1].z <= 90.0 ){ // spotlight?
+			  float clampedCosine = max(0.0, dot(-lightDirection, lights.spots[1].xyz));
+			  if( clampedCosine < cos(radians(lights.spots[i].z)) ){ attenuation = 0.0; } // outside of spotlight cone?
+			  else{ attenuation = attenuation * pow(clampedCosine, lights.attenuation[i].z); }
+		  }
+	  }
+
+	  vec3 ambientLighting = vec3(scene_ambient) * vec3(ubo.mat.ambient);
   
-  	highp float diff = max(dot(norm, lightDir), 0.0);
-	highp vec3 diffuse = diff * lightColors * 0.7;
+	  vec3 diffuseReflection = attenuation
+		  * vec3(lights.diffuse[i]) * vec3(ubo.mat.diffuse)
+		  * max(0.0, dot(normalDirection, lightDirection));
   
-  	highp float specularStrength = 0.2f;
-  	highp vec3 viewDir = normalize(viewPos - fragPos);
-	highp vec3 reflectDir = reflect(-lightDir, norm);
-	highp float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
-	highp vec3 specular = specularStrength * spec * lightColors;    
-     
-  	//vec3 result = (ambient + diffuse + specular ) * texture(sampler, UV).rgb;
-  	//vec3 result = (ambient + diffuse + specular ) * lightColor;
-  	//highp vec3 result = (ambient + diffuse + specular ) * vec3(vColor);
-  	highp vec3 result = (ambient + diffuse + specular ) * texture(texSampler, fragTexCoord).rgb;
-  	//highp vec3 result = (ambient + diffuse + specular ) * lightColors;
-  	outColor = vec4(result,1.0);
-  	//outColor = vec4(fragNormal,1.0);
-	*/
-
-	
-	//calculate normal in world coordinates
-	mat3 normalMatrix = transpose(inverse(mat3(ubo.model)));
-	vec3 normal = normalize(normalMatrix * fragNormal);
-	
-	//calculate the location of this fragment (pixel) in world coordinates
-	vec3 fragPosition = vec3(ubo.model * vec4(fragPos, 1));
-
-	//calculate the vector from this pixels surface to the light source
-	vec3 surfaceToLight = lightPos - fragPosition;
-
-	//calculate the cosine of the angle of incidence
-	float brightness = dot(normal, surfaceToLight) / (length(surfaceToLight) * length(normal));
-	brightness = clamp(brightness, 0.0, 1.0);
-
-	//calculate final color of the pixel, based on:
-	// 1. The angle of incidence: brightness
-	// 2. The color/intensities of the light: light.intensities
-	// 3. The texture and texture coord: texture(tex, fragTexCoord)
-	vec4 surfaceColor = texture(texSampler, fragTexCoord);
-	outColor = vec4(brightness * lightColors * surfaceColor.rgb, surfaceColor.a);
-	//outColor = vec4(brightness * lightColors, 1.0);
-	
-	//outColor = vec4(fragNormal,1.0);
-	//outColor = texture(texSampler, fragTexCoord);
-	
+	  vec3 specularReflection;
+	  if( dot(normalDirection, lightDirection) < 0.0 ){ // light source on the wrong side?
+		  specularReflection = vec3(0.0, 0.0, 0.0); // no specular reflection
+	  }
+	  else{ // light source on the right side
+		  specularReflection = attenuation * vec3(lights.specular[i]) * vec3(ubo.mat.specular) 
+			  * pow(max(0.0, dot(reflect(-lightDirection, normalDirection), viewDirection)), ubo.mat.shininess);
+	  }
+	  totalLighting = totalLighting + diffuseReflection + specularReflection;
+  }
+  
+  //gamma correction
+  float gamma = 2.2;
+  totalLighting.rgb = pow(totalLighting.rgb,vec3(1.0/gamma));
+  outColor = vec4(totalLighting, 1.0);
 }

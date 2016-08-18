@@ -8,17 +8,25 @@ linkFlags = -lGLEW -lGL -lSDL2 -lpthread -lpng -lz -lm
 
 
 OBJDIR = obj
-
 SRC = $(wildcard  $(addprefix ./,*.$(fileExtension)))
 
 OBJ = $(SRC:.$(fileExtension)=.o)
 OBJ := $(subst ./, ./$(OBJDIR)/, $(OBJ))
 
 
+#Couleurs d affichages ansi
+darkOrange256 = \e[38;5;202m
+darkPurple256 = \e[38;5;129m
+
+reset = \e[0m
+stepColor = \e[0;35m
+successColor = \e[0;32m
+
+
 all: mkOBJDIR $(OBJ)
-	@/bin/echo -e "\e[38;5;202mLinking process\t\e[0m"
+	@/bin/echo -e "$(stepColor)Linking process$(reset)"
 	$(compiler) $(OBJ) -o $(progName) $(linkFlags)
-	@/bin/echo -e "\e[38;5;190m[DONE]\n\e[0m"
+	@/bin/echo -e "$(successColor)[DONE]$(reset)\n"
 
 
 run: all
@@ -31,9 +39,9 @@ mkOBJDIR:
 	@mkdir ./$(OBJDIR) -p
 
 $(OBJDIR)/%.o: %.$(fileExtension)
-	@/bin/echo -e "\e[38;5;202m$@\t\e[0m" 
+	@/bin/echo -e "$(stepColor)Compiling: $@$(reset)" 
 	$(compiler) $(dialectFlag) $(subst .o,.$(fileExtension),$(subst $(OBJDIR)/, ./, $@)) -c -o ./$@ $(optionsFlags) 
-	@/bin/echo -e "\e[38;5;46m[OK]\n\e[0m"
+	@/bin/echo -e "$(successColor)[OK]$(reset)\n"
 
 clean:
 	@rm -rf ./$(OBJDIR)
@@ -52,7 +60,10 @@ clean:
 #-fdiagnostics-color=always -fmessage-length=50
 
 #0=none, 1=bold, 4=underscore, 5=blink, 7=reverse, 8=concealed
-#30=black, 31=red, 32=green, 33=yellow, 34=blue, 35=magenta, 36=cyan, 37=white
+#30=black, 31=red, 32=green, 33=yellow, 34=blue, 35=magenta, 36=cyan, 37=light gray, 39 default
+#90=dark gray, 91=light red, 92=light green, 93=light yellow, 94=light blue, 95=light magenta, 96=light cyan, 97=white, 
+
 #echo -e "\E[1;32mHello World"
+
 #<Esc>[38;5;ColorNumberm foreground -- ColorNumber [1;256]
 #<Esc>[48;5;ColorNumberm background
