@@ -41,7 +41,7 @@ void init(){
 	//mtest = new glMesh("../assets/flowers/rose.obj");
 	//mtest->loadTexture("../assets/flowers/rose.png");
 
-	mtest = new glMesh("../assets/mecha/MechaSonic.obj");
+	//mtest = new glMesh("../assets/mecha/MechaSonic.obj");
 	//mtest = new glMesh("../assets/mecha/dalek.obj");
 	//mtest = new glMesh("../assets/mecha/mechaFlower.obj");
 	//mtest = new glMesh("../assets/mecha/T-51b_Power_Armor.obj");
@@ -49,7 +49,7 @@ void init(){
 
 	//mtest = new glMesh("../assets/chalet/chalet2.obj");
 
-	//mtest = new glMesh("../assets/Clank/ClankT.obj");
+	mtest = new glMesh("../assets/Clank/ClankT.obj");
 	//mtest->png_texture_load("../assets/Clank/Texture0.png",NULL,NULL);
 
 	//mtest = new glMesh("../assets/rungholt/rungholtNoNeg.obj");

@@ -1,0 +1,15 @@
+#
+# C_MIDNA_PRINCESS.mtl
+#
+
+newmtl surface_000
+illum 2
+Kd 0.800000 0.800000 0.800000
+Ka 0.200000 0.200000 0.200000
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ns 0.000000
+map_Kd midna_diff.png
+map_Ks midna_spec.png
+map_Kn midna_normals.png
+#map_bump midna_normals.png

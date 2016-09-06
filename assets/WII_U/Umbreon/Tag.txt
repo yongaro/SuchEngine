@@ -1,0 +1,6 @@
+Game: Pokkén Tournament / Pokémon Tekken
+Subject: #197 Umbreon
+Copyright: Nintendo, Bandai-Namco, etc.
+Model Ripper: Random Talking Bush
+Hosting Permissions: The Models Resource
+Notes: The models are at 5000% scale, since the originals were tiny.

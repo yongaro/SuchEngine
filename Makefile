@@ -24,7 +24,7 @@ progName = VkSuchEngine
 
 dialectFlag = -std=c++11 -I$(VULKAN_SDK)/include
 optionsFlags = -Wall -O3
-linkFlags = -L$(VULKAN_SDK)/lib `pkg-config --static --libs glfw3` -lvulkan
+linkFlags = -L$(VULKAN_SDK)/lib `pkg-config --static --libs glfw3` -lvulkan -lassimp
 
 
 OBJDIR = obj
@@ -40,7 +40,7 @@ darkOrange256 = \e[38;5;202m
 darkPurple256 = \e[38;5;129m
 
 reset = \e[0m
-stepColor = \e[1;36m
+stepColor = \e[1;33m
 successColor = \e[1;32m
 ###################################################
 

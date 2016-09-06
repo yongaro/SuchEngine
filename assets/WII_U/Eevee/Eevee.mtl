@@ -1,0 +1,44 @@
+# Blender MTL File: 'None'
+# Material Count: 3
+
+newmtl Body
+Ns 19.607843
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 1
+map_Kd images/eevee_body.png
+map_Ks images/eevee_body_spc.png
+map_Kn images/eevee_body_nrm.png
+#map_bump images/eevee_body_pow.png
+
+newmtl Collar
+Ns 19.607843
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 1
+map_Kd images/eevee_collar.png
+map_Ks images/eevee_collar_spc.png
+map_Kn images/eevee_collar_nrm.png
+#map_bump images/eevee_collar_pow.png
+
+newmtl Face
+Ns 19.607843
+Ka 0.000000 0.000000 0.000000
+Kd 0.470400 0.470400 0.470400
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 1
+map_Kd images/eevee_face.png
+map_Ks images/eevee_face_spc.png
+map_Kn images/eevee_face_nrm.png
+#map_bump images/eevee_face_pow.png
