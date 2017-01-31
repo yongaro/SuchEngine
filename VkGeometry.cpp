@@ -363,7 +363,8 @@ void VkMesh::loadMesh(const std::string& assetPath, const std::string& fileName)
 	std::string pFile = assetPath + fileName;
 	// Create an instance of the Importer class
   Assimp::Importer importer;
-  const aiScene* scene = importer.ReadFile( pFile, aiProcess_CalcTangentSpace | aiProcess_Triangulate | aiProcess_RemoveRedundantMaterials  | aiProcess_JoinIdenticalVertices | aiProcess_SortByPType );
+  const aiScene* scene = importer.ReadFile( pFile, aiProcess_CalcTangentSpace | aiProcess_Triangulate | aiProcess_GenNormals
+                                            | aiProcess_RemoveRedundantMaterials  | aiProcess_JoinIdenticalVertices | aiProcess_SortByPType );
   
   // If the import failed, report it
   if( !scene ){ throw std::runtime_error("failed to load Mesh with assimp!"); }
@@ -449,12 +450,16 @@ void VkMesh::loadScene( const aiScene* sc, const std::string& assetPath ){
 			aiColor3D color (0.f,0.f,0.f);
 			material->Get(AI_MATKEY_COLOR_AMBIENT,color);
 			matg->mat.ambient = glm::vec4(color.r, color.g, color.b, 1.0f);
+			std::cout << "\t ambient -- " << matg->mat.ambient.x << " " << matg->mat.ambient.y << " " << matg->mat.ambient.z << std::endl;
 			material->Get(AI_MATKEY_COLOR_DIFFUSE,color);
 			matg->mat.diffuse = glm::vec4(color.r, color.g, color.b, 1.0f);
+			std::cout << "\t diffuse -- \e[1;31m" << matg->mat.diffuse.x << " " << matg->mat.diffuse.y << " " << matg->mat.diffuse.z << "\e[0m" << std::endl;
 			material->Get(AI_MATKEY_COLOR_SPECULAR,color);
 			matg->mat.specular = glm::vec4(color.r, color.g, color.b, 1.0f);
+			std::cout << "\t specular -- \e[1;36m" << matg->mat.specular.x << " " << matg->mat.specular.y << " " << matg->mat.specular.z << "\e[0m" << std::endl;
 			material->Get(AI_MATKEY_SHININESS,color);
 			matg->mat.shininess = color.r / 4.0f; //divided by 4 because of an obj spec misunderstood in assimp
+			std::cout << "\t shininess -- \e[1;38m" << matg->mat.shininess << "\e[0m" << std::endl;
 			
 			std::cout << std::endl;
 			matg->createUniformBuffers();

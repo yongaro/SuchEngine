@@ -38,7 +38,9 @@
 #define TEX_FILTER VK_FILTER_LINEAR;
 // Offscreen frame buffer properties
 #define FB_DIM TEX_DIM
-#define FB_COLOR_FORMAT VK_FORMAT_R8G8B8A8_UNORM
+#define FB_COLOR_FORMAT VK_FORMAT_B8G8R8A8_UNORM
+
+class VkApp;
 
 extern VkResult CreateDebugReportCallbackEXT(VkInstance, const VkDebugReportCallbackCreateInfoEXT*, const VkAllocationCallbacks*, VkDebugReportCallbackEXT*);
 extern void DestroyDebugReportCallbackEXT(VkInstance, VkDebugReportCallbackEXT, const VkAllocationCallbacks*);
@@ -157,11 +159,27 @@ struct Material{
 
 //Bloom strutures
 struct BlurData {
-	int32_t texWidth = TEX_DIM;
-	int32_t texHeight = TEX_DIM;
-	float blurScale = 1.0f;
-	float blurStrength = 1.5f;
-	uint32_t horizontal;
+	glm::vec2 scale_strength; //x = blurScale -- y = blurStrength
+	uint32_t texWidth;
+	uint32_t texHeight;
+	uint32_t flag;
+
+	BlurData():scale_strength(1.0f, 1.5f),texWidth(TEX_DIM),texHeight(TEX_DIM),flag(0){}
+};
+
+
+struct BlurDescriptor{
+	BlurData blurInfos;
+	VkDescriptorSet descriptorSet;
+	
+	VDeleter<VkBuffer> uniformStagingBuffer;
+	VDeleter<VkDeviceMemory> uniformStagingBufferMemory;
+	VDeleter<VkBuffer> uniformBuffer;
+	VDeleter<VkDeviceMemory> uniformBufferMemory;
+	
+	BlurDescriptor(VkApp*);
+	static void createDescriptorSetLayout(VkApp*);
+	void createDescriptorSet();
 };
 
 
@@ -171,161 +189,26 @@ struct FrameBufferAttachment {
 	VDeleter<VkDeviceMemory> mem;
 	VDeleter<VkImageView> view;
 	
-	FrameBufferAttachment(const VDeleter<VkDevice>&);
+	FrameBufferAttachment(VkApp*);
 };
+
+
 struct FrameBuffer {
+	VkApp* app;
 	int32_t width, height;
 	VDeleter<VkFramebuffer> frameBuffer;
 	FrameBufferAttachment color;
 	FrameBufferAttachment depth;
 
-	FrameBuffer(const VDeleter<VkDevice>&);
+	FrameBuffer(VkApp*);
+	// Setup the offscreen framebuffer for rendering the mirrored scene
+	// The color attachment of this framebuffer will then be sampled from
+	//void prepareOffscreenFramebuffer(FrameBuffer*, VkCommandBuffer);
 };
 
-/*
 
-// Setup the offscreen framebuffer for rendering the mirrored scene
-// The color attachment of this framebuffer will then be sampled from
-void VkApp::prepareOffscreenFramebuffer(FrameBuffer *frameBuf, VkCommandBuffer cmdBuffer){
-	frameBuf->width = FB_DIM;
-	frameBuf->height = FB_DIM;
-	
-	VkFormat fbColorFormat = FB_COLOR_FORMAT;
-	
-	// Find a suitable depth format
-	VkFormat fbDepthFormat = findDepthFormat();
-	
-	// Color attachment
-	VkImageCreateInfo image = {};
-	image.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	image.pNext = NULL;
-	image.imageType = VK_IMAGE_TYPE_2D;
-	image.format = fbColorFormat;
-	image.extent.width = frameBuf->width;
-	image.extent.height = frameBuf->height;
-	image.extent.depth = 1;
-	image.mipLevels = 1;
-	image.arrayLayers = 1;
-	image.samples = VK_SAMPLE_COUNT_1_BIT;
-	image.tiling = VK_IMAGE_TILING_OPTIMAL;
-	// We will sample directly from the color attachment
-	image.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-	
-	VkMemoryAllocateInfo memAlloc = {}
-	memAlloc.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	memAlloc.pNext = NULL;
-	memAlloc.allocationSize = 0;
-	memAlloc.memoryTypeIndex = 0;
 
-	VkMemoryRequirements memReqs;
-	
-	VkImageViewCreateInfo colorImageView = {}
-	colorImageView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	colorImageView.pNext = NULL;
-	colorImageView.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	colorImageView.format = fbColorFormat;
-	colorImageView.flags = 0;
-	colorImageView.subresourceRange = {};
-	colorImageView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	colorImageView.subresourceRange.baseMipLevel = 0;
-	colorImageView.subresourceRange.levelCount = 1;
-	colorImageView.subresourceRange.baseArrayLayer = 0;
-	colorImageView.subresourceRange.layerCount = 1;
 
-	VK_CHECK_RESULT(vkCreateImage(device, &image, nullptr, &frameBuf->color.image));
-	vkGetImageMemoryRequirements(device, frameBuf->color.image, &memReqs);
-	memAlloc.allocationSize = memReqs.size;
-	memAlloc.memoryTypeIndex = getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	VK_CHECK_RESULT(vkAllocateMemory(device, &memAlloc, nullptr, &frameBuf->color.mem));
-	VK_CHECK_RESULT(vkBindImageMemory(device, frameBuf->color.image, frameBuf->color.mem, 0));
 
-	// Set the initial layout to shader read instead of attachment 
-	// This is done as the render loop does the actualy image layout transitions
-	vkTools::setImageLayout(
-	                        cmdBuffer, 
-	                        frameBuf->color.image, 
-	                        VK_IMAGE_ASPECT_COLOR_BIT, 
-	                        VK_IMAGE_LAYOUT_UNDEFINED, 
-	                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-	colorImageView.image = frameBuf->color.image;
-	VK_CHECK_RESULT(vkCreateImageView(device, &colorImageView, nullptr, &frameBuf->color.view));
-
-	// Depth stencil attachment
-	image.format = fbDepthFormat;
-	image.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-
-	VkImageViewCreateInfo depthStencilView = {};
-	depthStencilView.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	depthStencilView.pNext = NULL;
-	depthStencilView.viewType = VK_IMAGE_VIEW_TYPE_2D;
-	depthStencilView.format = fbDepthFormat;
-	depthStencilView.flags = 0;
-	depthStencilView.subresourceRange = {};
-	depthStencilView.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-	depthStencilView.subresourceRange.baseMipLevel = 0;
-	depthStencilView.subresourceRange.levelCount = 1;
-	depthStencilView.subresourceRange.baseArrayLayer = 0;
-	depthStencilView.subresourceRange.layerCount = 1;
-
-	VK_CHECK_RESULT(vkCreateImage(device, &image, nullptr, &frameBuf->depth.image));
-	vkGetImageMemoryRequirements(device, frameBuf->depth.image, &memReqs);
-	memAlloc.allocationSize = memReqs.size;
-	memAlloc.memoryTypeIndex = getMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	VK_CHECK_RESULT(vkAllocateMemory(device, &memAlloc, nullptr, &frameBuf->depth.mem));
-	VK_CHECK_RESULT(vkBindImageMemory(device, frameBuf->depth.image, frameBuf->depth.mem, 0));
-
-	vkTools::setImageLayout(
-	                        cmdBuffer,
-	                        frameBuf->depth.image, 
-	                        VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT, 
-	                        VK_IMAGE_LAYOUT_UNDEFINED, 
-	                        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
-	depthStencilView.image = frameBuf->depth.image;
-	VK_CHECK_RESULT(vkCreateImageView(device, &depthStencilView, nullptr, &frameBuf->depth.view));
-
-	VkImageView attachments[2];
-	attachments[0] = frameBuf->color.view;
-	attachments[1] = frameBuf->depth.view;
-
-	VkFramebufferCreateInfo fbufCreateInfo = {};
-	fbufCreateInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-	fbufCreateInfo.pNext = NULL;
-	fbufCreateInfo.renderPass = renderPass;
-	fbufCreateInfo.attachmentCount = 2;
-	fbufCreateInfo.pAttachments = attachments;
-	fbufCreateInfo.width = frameBuf->width;
-	fbufCreateInfo.height = frameBuf->height;
-	fbufCreateInfo.layers = 1;
-
-	VK_CHECK_RESULT(vkCreateFramebuffer(device, &fbufCreateInfo, nullptr, &frameBuf->frameBuffer));
-}
-
-// Prepare the offscreen framebuffers used for the vertical- and horizontal blur 
-void prepareOffscreenFramebuffers(){
-	VkCommandBuffer cmdBuffer = VulkanExampleBase::createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
-	prepareOffscreenFramebuffer(&offScreenFrameBuf, cmdBuffer);
-	prepareOffscreenFramebuffer(&offScreenFrameBufB, cmdBuffer);
-	VulkanExampleBase::flushCommandBuffer(cmdBuffer, queue, true);
-
-	// Create sampler to sample from the color attachments
-	VkSamplerCreateInfo sampler = {};
-	sampler.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	sampler.pNext = NULL;
-	sampler.magFilter = VK_FILTER_LINEAR;
-	sampler.minFilter = VK_FILTER_LINEAR;
-	sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	sampler.addressModeV = sampler.addressModeU;
-	sampler.addressModeW = sampler.addressModeU;
-	sampler.mipLodBias = 0.0f;
-	sampler.maxAnisotropy = 0;
-	sampler.minLod = 0.0f;
-	sampler.maxLod = 1.0f;
-	sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-	VK_CHECK_RESULT(vkCreateSampler(device, &sampler, nullptr, &colorSampler));
-}
-*/
 
 #endif

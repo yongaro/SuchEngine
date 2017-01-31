@@ -25,44 +25,9 @@ static SDL_GLContext gl_context;
 
 
 void init(){
-	//mtest = new glMesh("../assets/OFF/buddha.obj");
-	//mtest = new glMesh("../assets/OFF/bunny.obj");
-	//mtest = new glMesh("../assets/OFF/max.obj");
-	//mtest = new glMesh("../assets/OFF/triceratops.obj");
-	//mtest = new glMesh("../assets/OFF/MeshSegmentation.obj");
-	//mtest = new glMesh("../assets/OFF/cube.obj");
-
-	//mtest = new glMesh("../assets/flowers/ARose.obj");
-	//mtest = new glMesh("../assets/flowers/statue.obj");
-	//mtest = new glMesh("../assets/flowers/fireFlower.obj");
-	//mtest->png_texture_load("../assets/flowers/fire.png",NULL,NULL);
-	//mtest = new glMesh("../assets/flowers/Flower.obj");
-	//mtest->png_texture_load("../assets/flowers/Flower_Texture.png",NULL,NULL);
-	//mtest = new glMesh("../assets/flowers/rose.obj");
-	//mtest->loadTexture("../assets/flowers/rose.png");
-
-	//mtest = new glMesh("../assets/mecha/MechaSonic.obj");
-	//mtest = new glMesh("../assets/mecha/dalek.obj");
-	//mtest = new glMesh("../assets/mecha/mechaFlower.obj");
-	//mtest = new glMesh("../assets/mecha/T-51b_Power_Armor.obj");
-	//mtest = new glMesh("../assets/mecha/Gaige.obj");
-
-	//mtest = new glMesh("../assets/chalet/chalet2.obj");
-
-	mtest = new glMesh("../assets/Clank/ClankT.obj");
-	//mtest->png_texture_load("../assets/Clank/Texture0.png",NULL,NULL);
-
-	//mtest = new glMesh("../assets/rungholt/rungholtNoNeg.obj");
-	//mtest->loadTexture("../assets/rungholt/house-RGBA.png");
-	
-	//mtest = new glMesh("../assets/Melynx/Melynx.obj");
-	//mtest->png_texture_load("../assets/Melynx/Melynx.png",NULL,NULL);
-
-	//mtest = new glMesh("../assets/Mush/Mush.obj");
-	//mtest->png_texture_load("../assets/Mush/oddMush.png",NULL,NULL);
-
-	//mtest = new glMesh("../assets/Mush/big.obj");
-	//mtest->png_texture_load("../assets/Mush/big.png",NULL,NULL);
+	mtest = new glMesh("../assets/glLegacy/Mush/big.obj");
+	//mtest = new glMesh("../assets/glLegacy/OFF/triceratops.obj");
+	//mtest->png_texture_load("../assets/glLegacy/Mush/big.png",NULL,NULL);
 
 	//mtest->fillAretesVives( M_PI / 12 );
 	//mtest->segmenter( );
@@ -114,7 +79,7 @@ void render() {
 	SDL_GL_MakeCurrent(window, gl_context);
 
 	//glClearColor(0.15,0.15,0.15,0);
-	glClearColor(0.0,0.0,0.0,0);
+	glClearColor(0.05,0.05,0.2,0.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glPushMatrix();
 	

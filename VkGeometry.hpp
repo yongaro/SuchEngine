@@ -11,7 +11,7 @@
 #include <assimp/IOSystem.hpp>
 
 
-class VkApp;
+
 
 struct VkBufferVertex{
 	glm::vec3 pos;

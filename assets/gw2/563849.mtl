@@ -1,0 +1,21 @@
+# Gw2Browser MTL File: '563849'
+# Material Count : 1
+
+newmtl tortoiseTexture
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+Ns 10
+d 1
+illum 2
+map_Ka 561245.png
+map_Kd 561245.png
+map_Ks 561245.png
+
+newmtl None
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+Ns 10
+d 1
+illum 2

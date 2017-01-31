@@ -5,7 +5,7 @@
 
 enum Uniforms{ GLOBAL, LIGHTS, SIZE_U };
 enum Images{ DEPTH, SIZE_I };
-
+enum Pipelines{ BLOOM_P, COLOR, PHONG, SIZE_P };
 
 
 class VkMesh;
@@ -34,73 +34,71 @@ private:
 	CamInfos camera;
 	
 
-	VDeleter<VkInstance> instance;
-	VDeleter<VkDebugReportCallbackEXT> callback;
-	VDeleter<VkSurfaceKHR> surface;
+	VDeleter< VkInstance > instance;
+	VDeleter< VkDebugReportCallbackEXT > callback;
+	VDeleter< VkSurfaceKHR > surface;
 
 	VkPhysicalDevice physicalDevice;
-	VDeleter<VkDevice> device;
+	VDeleter< VkDevice > device;
 
 	VkQueue graphicsQueue;
 	VkQueue presentQueue;
 
-	VDeleter<VkSwapchainKHR> swapChain;
-	std::vector<VkImage> swapChainImages;
+	VDeleter< VkSwapchainKHR > swapChain;
+	std::vector< VkImage > swapChainImages;
 	VkFormat swapChainImageFormat;
 	VkExtent2D swapChainExtent;
-	std::vector<VDeleter<VkImageView>> swapChainImageViews;
-	std::vector<VDeleter<VkFramebuffer>> swapChainFramebuffers;
+	std::vector< VDeleter< VkImageView > > swapChainImageViews;
+	std::vector< VDeleter< VkFramebuffer > > swapChainFramebuffers;
 	
 	
-	VDeleter<VkRenderPass> renderPass;
-	VDeleter<VkDescriptorSetLayout> globalDescriptorSetLayout;
-	VDeleter<VkDescriptorSetLayout> texturesDescriptorSetLayout;
-	VDeleter<VkDescriptorSetLayout> meshDescriptorSetLayout;
+	VDeleter< VkRenderPass > renderPass;
+	VDeleter< VkDescriptorSetLayout > globalDescriptorSetLayout;
+	VDeleter< VkDescriptorSetLayout > texturesDescriptorSetLayout;
+	VDeleter< VkDescriptorSetLayout > meshDescriptorSetLayout;
+	VDeleter< VkDescriptorSetLayout > bloomDescriptorSetLayout;
 
-	VDeleter<VkPipelineLayout> pipelineLayout;
-	VDeleter<VkPipeline> graphicsPipeline;
+	VDeleter< VkPipelineLayout > pipelineLayout;
+	VDeleter< VkPipeline > graphicsPipeline[Pipelines::SIZE_P];
 
-	VDeleter<VkCommandPool> commandPool;
+	VDeleter< VkCommandPool > commandPool;
 
-	VDeleter<VkImage> depthImage;
-	VDeleter<VkDeviceMemory> depthImageMemory;
-	VDeleter<VkImageView> depthImageView;
+	VDeleter< VkImage > depthImage;
+	VDeleter< VkDeviceMemory > depthImageMemory;
+	VDeleter< VkImageView > depthImageView;
 
 	
-	VDeleter<VkBuffer> uniformStagingBuffer[Uniforms::SIZE_U];
-	VDeleter<VkDeviceMemory> uniformStagingBufferMemory[Uniforms::SIZE_U];
-	VDeleter<VkBuffer> uniformBuffer[Uniforms::SIZE_U];
-	VDeleter<VkDeviceMemory> uniformBufferMemory[Uniforms::SIZE_U];
+	VDeleter< VkBuffer > uniformStagingBuffer[Uniforms::SIZE_U];
+	VDeleter< VkDeviceMemory > uniformStagingBufferMemory[Uniforms::SIZE_U];
+	VDeleter< VkBuffer > uniformBuffer[Uniforms::SIZE_U];
+	VDeleter< VkDeviceMemory > uniformBufferMemory[Uniforms::SIZE_U];
 
 
-	VDeleter<VkDescriptorPool> descriptorPool;
+	VDeleter< VkDescriptorPool > descriptorPool;
 	VkDescriptorSet globalDescriptorSet;
+	VkDescriptorSet bloomHorDescriptorSet;
+	
+	std::vector< VkCommandBuffer > commandBuffers;
 
-	std::vector<VkCommandBuffer> commandBuffers;
-
-	VDeleter<VkSemaphore> imageAvailableSemaphore;
-	VDeleter<VkSemaphore> renderFinishedSemaphore;
+	VDeleter< VkSemaphore > imageAvailableSemaphore;
+	VDeleter< VkSemaphore > renderFinishedSemaphore;
 
 	//BLOOM SHIET
-	//BlurData verticalBlur, horizontalBLur;
-	//VkPipeline pipelines[Pipelines::LAST];
+	BlurDescriptor verticalBlur;
+	BlurDescriptor horizontalBlur;
 	
 	//VkPipelineLayout radialBlur;
 	//VkPipelineLayout scene;
 	
-	//VkDescriptorSet scene;
-	//VkDescriptorSet verticalBlur;
-	//VkDescriptorSet horizontalBlur;
-	
-	//FrameBuffer offScreenFrameBuf;
-	//FrameBuffer offScreenFrameBufB;
+	FrameBuffer offScreenFrameBuf;
+	FrameBuffer offScreenFrameBufB;
 	// One sampler for the frame buffer color attachments
-	//VkSampler colorSampler;
+	VDeleter< VkSampler > colorSampler;
 	// Used to store commands for rendering and blitting
 	// the offscreen scene
-	//VkCommandBuffer offScreenCmdBuffer = VK_NULL_HANDLE;
+	VkCommandBuffer offScreenCmdBuffer;
 	// Semaphore used to synchronize between offscreen and final scene rendering
-	//VkSemaphore offscreenSemaphore = VK_NULL_HANDLE;
+	VDeleter< VkSemaphore > offscreenSemaphore;
 
 	void initWindow();
 	void initVulkan();
@@ -177,9 +175,17 @@ private:
 	static std::vector<char> readFile(const std::string&);
 	static VkBool32 debugCallback(VkDebugReportFlagsEXT, VkDebugReportObjectTypeEXT, uint64_t, size_t, int32_t, const char*, const char*, void*);
 
+	uint32_t getMemoryType( uint32_t, VkFlags);
+	
+	void prepareOffscreenFramebuffers();
+	void prepareOffscreenFramebuffer(FrameBuffer*, VkCommandBuffer);
+
 	friend class VkMesh;
 	friend class VkSubMesh;
 	friend class MaterialGroup;
+	friend class BlurDescriptor;
+	friend class FrameBufferAttachment;
+	friend class FrameBuffer;
 };
 
 

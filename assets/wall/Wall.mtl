@@ -2,7 +2,7 @@
 # Material Count: 2
 
 newmtl Floor
-Ns 10
+Ns 20
 Ka 1.000000 1.000000 1.000000
 Kd 0.640000 0.640000 0.640000
 Ks 0.500000 0.500000 0.500000
@@ -10,13 +10,10 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.000000
 d 1.000000
 illum 2
-map_Kd tuto_diff.jpg
-map_Kn tuto_normals.jpg
-
 
 
 newmtl Wall
-Ns 10
+Ns 20
 Ka 1.000000 1.000000 1.000000
 Kd 0.640000 0.640000 0.640000
 Ks 0.500000 0.500000 0.500000
@@ -24,7 +21,10 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.000000
 d 1.000000
 illum 2
+#map_Kd wood.png
+#map_Kn toy_box_normal.png
+#map_bump toy_box_disp.png
+
 map_Kd bricks_diff.jpg
 map_Kn bricks_normals.jpg
 map_bump bricks_height.jpg
-

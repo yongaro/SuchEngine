@@ -80,7 +80,7 @@ glMesh::glMesh(): Mesh(),
 						GPUnormal( new vector<glm::vec3>() )
 {
 
-		VAO = 0; texture = 0; displayMode = GL_TRIANGLES; mode = GL_FILL; material = new Shader("./shaders/basicShader2");
+		VAO = 0; texture = 0; displayMode = GL_TRIANGLES; mode = GL_FILL; material = new glPipeline("./shaders/phong");
 }
 
 glMesh::glMesh(const char* path):Mesh(),
@@ -88,7 +88,7 @@ glMesh::glMesh(const char* path):Mesh(),
 											GPUtexCoord( new vector<glm::vec2>() ),
 											GPUnormal( new vector<glm::vec3>() )
 {
-	VAO = 0; texture = 0; displayMode = GL_TRIANGLES; mode = GL_FILL; material = new Shader("./shaders/basicShader2");
+	VAO = 0; texture = 0; displayMode = GL_TRIANGLES; mode = GL_FILL; material = new glPipeline("./shaders/phong");
 	loadOBJ(path);
 }
 

@@ -18,14 +18,14 @@ out highp vec4 color;
  
 void main() {
   
-  highp vec3 ambient = 0.1f * lightColor;
+  highp vec3 ambient = 0.2f * lightColor;
  	highp vec3 norm = normalize(Normal);
 	highp vec3 lightDir = normalize(lightPos - FragPos);  
   
   highp float diff = max(dot(norm, lightDir), 0.0);
-	highp vec3 diffuse = diff * lightColor * 0.7;
+	highp vec3 diffuse = diff * lightColor * 0.6;
   
-  highp float specularStrength = 0.2f;
+  highp float specularStrength = 0.3f;
   highp vec3 viewDir = normalize(viewPos - FragPos);
   highp vec3 reflectDir = reflect(-lightDir, norm);
   highp float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
