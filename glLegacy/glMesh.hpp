@@ -1,7 +1,8 @@
 #ifndef GLMESH_HPP
 #define GLMESH_HPP
 
-#include "glPipeline.hpp"
+//inclu aussi mesh.hpp
+#include "Shader.hpp"
 
 
 
@@ -25,7 +26,7 @@ protected:
 	GLuint texture;
 	GLenum displayMode;
 	GLenum mode;
-	glPipeline* material;
+	Shader* material;
 
 
 	std::vector< glm::vec3 >* GPUposition;
